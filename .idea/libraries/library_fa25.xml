@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="library-fa25">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../library-fa24" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../library-fa24" />
+    </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/../library-fa24" recursive="false" />
+    <jarDirectory url="file://$PROJECT_DIR$/../library-fa24" recursive="false" type="SOURCES" />
+  </library>
+</component>
