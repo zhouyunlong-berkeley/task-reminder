@@ -78,6 +78,7 @@ public class TaskDAO {
             pstmt.setString(9, task.getLastModifiedTime().toString());
 
             pstmt.executeUpdate();
+            System.out.println("Task saved successfully: " + task.getId());
         } catch (SQLException e) {
             e.printStackTrace();
             throw new RuntimeException("Failed to save task", e);
@@ -167,21 +168,23 @@ public class TaskDAO {
      */
     public Task getTaskById(String taskId) {
         String sql = "SELECT * FROM tasks WHERE id = ?";
-
+        System.out.println("Executing SQL: " + sql);
+        System.out.println("Task ID: " + taskId);
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
             pstmt.setString(1, taskId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return createTaskFromResultSet(rs);
+                    Task task = createTaskFromResultSet(rs);
+                    System.out.println("Task found: " + task);
+                    return task;
+                } else {
+                    System.out.println("No task found with ID: " + taskId);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            throw new RuntimeException("Failed to fetch task", e);
         }
-
         return null;
     }
 

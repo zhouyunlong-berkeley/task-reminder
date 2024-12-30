@@ -112,4 +112,23 @@ public class TaskQueue {
     public Task[] getAllTasks() {
         return taskHeap.toArray(new Task[0]);
     }
+
+    public void updateTask(Task task) {
+        // Cannot update null task
+        if (task == null) {
+            throw new IllegalArgumentException("Task cannot be null");
+        }
+
+        // Remove the old task and add the updated one
+        // Since PriorityQueue doesn't have a direct update method,
+        // we need to remove and re-add to maintain heap properties
+        boolean removed = taskHeap.remove(task);
+
+        // Only add if the task was actually in the queue
+        if (removed) {
+            taskHeap.offer(task);
+        } else {
+            throw new IllegalArgumentException("Task not found in queue");
+        }
+    }
 }

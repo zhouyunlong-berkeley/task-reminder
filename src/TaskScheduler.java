@@ -1,3 +1,4 @@
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -86,6 +87,20 @@ public class TaskScheduler {
     }
 
     /**
+     * Cancels the given task by removing it from the queue and canceling its reminder.
+     *
+     * @param task the task to be canceled
+     */
+    public void cancelTask(Task task) {
+        // Cancel the task's scheduled reminder
+        cancelReminder(task);
+
+        // Remove the task from the task queue
+        taskQueue.removeTask(task);
+    }
+
+
+    /**
      * Reschedules a reminder for the given task with a new reminder time.
      *
      * @param task            the task to be rescheduled
@@ -129,6 +144,35 @@ public class TaskScheduler {
         } catch (InterruptedException e) {
             scheduler.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+    }
+
+    public void updateTask(Task task) {
+        String taskId = task.getId();
+
+        // 取消现有的提醒任务
+        ScheduledFuture<?> existingSchedule = scheduledTasks.get(taskId);
+        if (existingSchedule != null) {
+            existingSchedule.cancel(false);
+        }
+
+        // 更新任务队列
+        taskQueue.updateTask(task);
+
+        // 重新安排提醒任务
+        LocalDateTime reminderTime = task.getReminderTime();
+        Duration delay = Duration.between(LocalDateTime.now(), reminderTime);
+
+        // 只有当提醒时间在未来时才安排提醒
+        if (!delay.isNegative()) {
+            ScheduledFuture<?> scheduledFuture = scheduler.schedule(
+                    () -> reminderHandler.onTaskReminder(task),
+                    delay.toMillis(),
+                    TimeUnit.MILLISECONDS
+            );
+
+            // 更新调度任务映射
+            scheduledTasks.put(taskId, scheduledFuture);
         }
     }
 }

@@ -1,8 +1,11 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 
@@ -28,6 +31,15 @@ public class TaskManagerGUI extends JFrame {
     /** 数据访问对象，用于与存储的任务数据进行交互。 */
     private final TaskDAO taskDAO;
 
+    // 在类成员变量定义中添加一个常量标识列索引
+    private static final int COLUMN_ID = 0;
+    private static final int COLUMN_TITLE = 1;
+    private static final int COLUMN_DESCRIPTION = 2;
+    private static final int COLUMN_PRIORITY = 3;
+    private static final int COLUMN_STATUS = 4;
+    private static final int COLUMN_DUE_TIME = 5;
+    private static final int COLUMN_REMINDER_TIME = 6;
+
     /**
      * 构造方法，初始化任务管理系统的图形用户界面。
      * 配置窗口属性，设置表格和按钮的事件逻辑，并加载已保存的任务。
@@ -51,7 +63,7 @@ public class TaskManagerGUI extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout());
 
         // 初始化任务表格
-        String[] columnNames = {"标题", "描述", "优先级", "状态", "截止时间", "提醒时间"};
+        String[] columnNames = {"ID","标题", "描述", "优先级", "状态", "截止时间", "提醒时间"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -59,6 +71,11 @@ public class TaskManagerGUI extends JFrame {
             }
         };
         taskTable = new JTable(tableModel);
+
+        //隐藏ID列
+        TableColumn idColumn = taskTable.getColumnModel().getColumn(0);
+        taskTable.removeColumn(idColumn);
+
         JScrollPane scrollPane = new JScrollPane(taskTable);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
 
@@ -68,20 +85,51 @@ public class TaskManagerGUI extends JFrame {
         JButton editButton = new JButton("编辑任务");
         JButton completeButton = new JButton("完成任务");
         JButton deleteButton = new JButton("删除任务");
+        JButton goodButton= new JButton(("求求安慰"));
 
         // 添加按钮到面板
         buttonPanel.add(addButton);
         buttonPanel.add(editButton);
         buttonPanel.add(completeButton);
         buttonPanel.add(deleteButton);
+        buttonPanel.add(goodButton);
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
 
-        // 为按钮设置事件监听
+        // 为添加任务按钮设置事件监听
         addButton.addActionListener(e -> showAddTaskDialog());
-        editButton.addActionListener(e -> handleEditTask());
-        completeButton.addActionListener(e -> handleCompleteTask());
-        deleteButton.addActionListener(e -> handleDeleteTask());
 
+        //为编辑任务按钮设置事件监听
+        editButton.addActionListener(e -> {
+            int selectedRow = taskTable.getSelectedRow();
+            if (selectedRow >= 0) {
+                // 实现编辑功能
+                showEditTaskDialog(selectedRow);
+            } else {
+                JOptionPane.showMessageDialog(this, "请选择要编辑的任务");
+            }
+        });
+
+        //为完成任务按钮设置事件监听
+        completeButton.addActionListener(e -> {
+            int selectedRow = taskTable.getSelectedRow();
+            if (selectedRow >= 0) {
+                // 实现完成任务功能
+                completeTask(selectedRow);
+            } else {
+                JOptionPane.showMessageDialog(this, "请选择要完成的任务");
+            }
+        });
+
+        // 为删除任务按钮设置事件监听
+        deleteButton.addActionListener(e -> {
+            int selectedRow = taskTable.getSelectedRow();
+            if (selectedRow >= 0) {
+                // 实现删除功能
+                deleteTask(selectedRow);
+            } else {
+                JOptionPane.showMessageDialog(this, "请选择要删除的任务");
+            }
+        });
         add(mainPanel);
 
         // 加载保存的任务
@@ -103,8 +151,75 @@ public class TaskManagerGUI extends JFrame {
      * 显示添加任务的对话框，用于创建新任务。
      */
     private void showAddTaskDialog() {
-        // 对话框的实现逻辑（详见代码中的实现）
+        JDialog dialog = new JDialog(this, "添加新任务", true);
+        dialog.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // 创建输入字段
+        JTextField titleField = new JTextField(20);
+        JTextField descField = new JTextField(20);
+        JComboBox<Task.TaskPriority> priorityCombo = new JComboBox<>(Task.TaskPriority.values());
+        JSpinner dueDateSpinner = createDateTimeSpinner();
+        JSpinner reminderSpinner = createDateTimeSpinner();
+
+        // 添加组件
+        gbc.gridx = 0; gbc.gridy = 0;
+        dialog.add(new JLabel("标题："), gbc);
+        gbc.gridx = 1;
+        dialog.add(titleField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        dialog.add(new JLabel("描述："), gbc);
+        gbc.gridx = 1;
+        dialog.add(descField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
+        dialog.add(new JLabel("优先级："), gbc);
+        gbc.gridx = 1;
+        dialog.add(priorityCombo, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 3;
+        dialog.add(new JLabel("截止时间："), gbc);
+        gbc.gridx = 1;
+        dialog.add(dueDateSpinner, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 4;
+        dialog.add(new JLabel("提醒时间："), gbc);
+        gbc.gridx = 1;
+        dialog.add(reminderSpinner, gbc);
+
+        // 确定按钮
+        JButton confirmButton = new JButton("确定");
+        gbc.gridx = 0; gbc.gridy = 5;
+        gbc.gridwidth = 2;
+        dialog.add(confirmButton, gbc);
+
+        confirmButton.addActionListener(e -> {
+            // 创建新任务
+            Task task = new Task(
+                    titleField.getText(),
+                    descField.getText(),
+                    getDateTimeFromSpinner(dueDateSpinner),
+                    getDateTimeFromSpinner(reminderSpinner),
+                    (Task.TaskPriority) priorityCombo.getSelectedItem()
+            );
+
+            // 添加到调度器
+            scheduler.scheduleTask(task);
+            // 更新表格
+            addTaskToTable(task);
+            dialog.dispose();
+            // 将任务存储到Database
+            taskDAO.saveTask(task);
+        });
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
+
 
     /**
      * 创建并返回一个日期时间选择器。
@@ -138,6 +253,7 @@ public class TaskManagerGUI extends JFrame {
      */
     private void addTaskToTable(Task task) {
         Vector<String> row = new Vector<>();
+        row.add(task.getId());
         row.add(task.getTitle());
         row.add(task.getDescription());
         row.add(task.getPriority().toString());
@@ -145,6 +261,7 @@ public class TaskManagerGUI extends JFrame {
         row.add(task.getDueDateTime().format(dateFormatter));
         row.add(task.getReminderTime().format(dateFormatter));
         tableModel.addRow(row);
+        System.out.println("Task added to table with ID: " + task.getId());
     }
 
     /**
@@ -153,7 +270,121 @@ public class TaskManagerGUI extends JFrame {
      * @param row 被选中的任务行号。
      */
     private void showEditTaskDialog(int row) {
-        // TODO: 实现编辑功能的对话框
+        String taskId = (String) tableModel.getValueAt(row, COLUMN_ID);
+        System.out.println("Task ID: " + taskId);
+        Task task = taskDAO.getTaskById(taskId);
+        System.out.println("Task ID: " + task);
+
+
+        if (task == null) {
+            JOptionPane.showMessageDialog(this, "无法加载任务信息", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // 创建对话框
+        JDialog dialog = new JDialog(this, "编辑任务", true);
+        dialog.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // 创建输入字段并设置当前值
+        JTextField titleField = new JTextField(task.getTitle(), 20);
+        JTextField descField = new JTextField(task.getDescription(), 20);
+        JComboBox<Task.TaskPriority> priorityCombo = new JComboBox<>(Task.TaskPriority.values());
+        priorityCombo.setSelectedItem(task.getPriority());
+
+        JSpinner dueDateSpinner = createDateTimeSpinner();
+        dueDateSpinner.setValue(Date.from(task.getDueDateTime().atZone(ZoneId.systemDefault()).toInstant()));
+
+        JSpinner reminderSpinner = createDateTimeSpinner();
+        reminderSpinner.setValue(Date.from(task.getReminderTime().atZone(ZoneId.systemDefault()).toInstant()));
+
+        // 添加组件
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        dialog.add(new JLabel("标题："), gbc);
+        gbc.gridx = 1;
+        dialog.add(titleField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        dialog.add(new JLabel("描述："), gbc);
+        gbc.gridx = 1;
+        dialog.add(descField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        dialog.add(new JLabel("优先级："), gbc);
+        gbc.gridx = 1;
+        dialog.add(priorityCombo, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        dialog.add(new JLabel("截止时间："), gbc);
+        gbc.gridx = 1;
+        dialog.add(dueDateSpinner, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        dialog.add(new JLabel("提醒时间："), gbc);
+        gbc.gridx = 1;
+        dialog.add(reminderSpinner, gbc);
+
+        // 确定按钮
+        JButton confirmButton = new JButton("确定");
+        gbc.gridx = 0;
+        gbc.gridy = 5;
+        gbc.gridwidth = 2;
+        dialog.add(confirmButton, gbc);
+
+        confirmButton.addActionListener(e -> {
+            // 更新任务信息
+            task.setTitle(titleField.getText());
+            task.setDescription(descField.getText());
+            task.setDueDateTime(getDateTimeFromSpinner(dueDateSpinner));
+            task.setReminderTime(getDateTimeFromSpinner(reminderSpinner));
+            task.setPriority((Task.TaskPriority) priorityCombo.getSelectedItem());
+
+            try {
+                // 更新数据库
+                taskDAO.updateTask(task);
+
+                // 更新调度器
+                scheduler.updateTask(task);
+
+                // 更新表格显示
+                tableModel.setValueAt(task.getTitle(), row, COLUMN_TITLE);
+                tableModel.setValueAt(task.getDescription(), row, COLUMN_DESCRIPTION);
+                tableModel.setValueAt(task.getPriority().toString(), row, COLUMN_PRIORITY);
+                tableModel.setValueAt(task.getStatus().toString(), row, COLUMN_STATUS);
+                tableModel.setValueAt(task.getDueDateTime().format(dateFormatter), row, COLUMN_DUE_TIME);
+                tableModel.setValueAt(task.getReminderTime().format(dateFormatter), row, COLUMN_REMINDER_TIME);
+
+                dialog.dispose();
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(dialog,
+                        "保存任务失败: " + ex.getMessage(),
+                        "错误",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void completeTask(int row) {
+        // TODO: 实现完成任务功能
+        tableModel.setValueAt("COMPLETED", row, 3);
+        JOptionPane.showMessageDialog(this, "任务已完成");
+    }
+
+    private void deleteTask(int row) {
+        // TODO: 实现删除任务功能
+        tableModel.removeRow(row);
+        JOptionPane.showMessageDialog(this, "任务已删除");
     }
 
     /**
@@ -200,5 +431,12 @@ public class TaskManagerGUI extends JFrame {
         } else {
             JOptionPane.showMessageDialog(this, "请选择要删除的任务");
         }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            TaskManagerGUI gui = new TaskManagerGUI();
+            gui.setVisible(true);
+        });
     }
 }
